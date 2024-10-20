@@ -9,6 +9,7 @@ class Post < ApplicationRecord
 
   include ApplicationHelper
 
+  # Includes the functionality the post should have such as being likeable, commentable, etc.
   include Diaspora::Federated::Base
   include Diaspora::Federated::Fetchable
 
@@ -22,8 +23,10 @@ class Post < ApplicationRecord
 
   attr_accessor :user_like
 
+  # Allows user to report a post
   has_many :reports, as: :item
 
+  # Keeps track of num of reshares and who reshared
   has_many :reshares, class_name: "Reshare", foreign_key: :root_guid, primary_key: :guid
   has_many :resharers, class_name: "Person", through: :reshares, source: :author
 
@@ -79,6 +82,7 @@ class Post < ApplicationRecord
     joins(:reshares).where(reshares_posts: {author_id: person.id})
   }
 
+  # Returns the type of the post
   def post_type
     self.class.name
   end
@@ -94,6 +98,7 @@ class Post < ApplicationRecord
   def poll
   end
 
+  # Removes any posts that are by blocked users
   def self.excluding_blocks(user)
     people = user.blocks.map{|b| b.person_id}
     scope = all
@@ -105,6 +110,7 @@ class Post < ApplicationRecord
     scope
   end
 
+  # Removes any posts that are hidden
   def self.excluding_hidden_shareables(user)
     scope = all
     if user.has_hidden_shareables_of_type?
