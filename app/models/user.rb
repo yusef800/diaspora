@@ -13,6 +13,7 @@ class User < ApplicationRecord
 
   apply_simple_captcha :message => I18n.t('simple_captcha.message.failed'), :add_to_base => true
 
+  # Scopes for filtering users based on activity timestamps
   scope :logged_in_since, ->(time) { where('last_seen > ?', time) }
   scope :monthly_actives, ->(time = Time.now) { logged_in_since(time - 1.month) }
   scope :daily_actives, ->(time = Time.now) { logged_in_since(time - 1.day) }
@@ -60,8 +61,12 @@ class User < ApplicationRecord
 
   has_many :aspects, -> { order('order_id ASC') }
 
+
+
   belongs_to :auto_follow_back_aspect, class_name: "Aspect", optional: true
   belongs_to :invited_by, class_name: "User", optional: true
+
+  # Defines the associations between the user model and other models 
 
   has_many :invited_users, class_name: "User", inverse_of: :invited_by, foreign_key: :invited_by_id
 
@@ -93,8 +98,8 @@ class User < ApplicationRecord
 
   has_many :share_visibilities
 
+  # Makes sure the unconfirmed emails are valid before saving it
   before_save :guard_unconfirmed_email
-
   after_save :remove_invalid_unconfirmed_emails
 
   before_destroy do
@@ -105,10 +110,12 @@ class User < ApplicationRecord
     User.joins(:contacts).where(:contacts => {:person_id => person.id})
   end
 
+  #Retrieves users unread notificationsa
   def unread_notifications
     notifications.where(:unread => true)
   end
 
+  # Retrieves the number of unread messages
   def unread_message_count
     ConversationVisibility.where(person_id: self.person_id).sum(:unread)
   end
@@ -118,6 +125,7 @@ class User < ApplicationRecord
     invite.use! unless AppConfig.settings.enable_registrations?
   end
 
+  # Creates invite code to be send to a new user
   def invitation_code
     InvitationCode.find_or_create_by(user_id: self.id)
   end
@@ -174,6 +182,7 @@ class User < ApplicationRecord
   # from a Sidekiq job
   alias_method :send_reset_password_instructions!, :send_reset_password_instructions
 
+  # sends user the reset instructions for their password
   def send_reset_password_instructions
     Workers::ResetPassword.perform_async(self.id)
   end
@@ -197,6 +206,7 @@ class User < ApplicationRecord
     end
   end
 
+  # strips the username of whitespace and downcases it to ensure uniqueness and consistency
   def strip_and_downcase_username
     if username.present?
       username.strip!
@@ -459,6 +469,7 @@ class User < ApplicationRecord
     aq
   end
 
+  # Gives welcome message if user is new and setting is enabled
   def send_welcome_message
     return unless AppConfig.settings.welcome_message.enabled? && AppConfig.admins.account?
     sender_username = AppConfig.admins.account.get

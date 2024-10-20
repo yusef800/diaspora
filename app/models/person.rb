@@ -317,6 +317,8 @@ class Person < ApplicationRecord
     local? ? AppConfig.url_to(path) : pod.url_to(path)
   end
 
+  # Handles getting the key and the keys decoding.
+
   def public_key_hash
     Base64.encode64(OpenSSL::Digest::SHA256.new(serialized_public_key).to_s)
   end
