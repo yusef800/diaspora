@@ -28,6 +28,7 @@ class Conversation < ApplicationRecord
     self.participants - [self.author]
   end
 
+  # Showing the earlies unread message
   def first_unread_message(user)
     if visibility = self.conversation_visibilities.where(:person_id => user.person.id).where('unread > 0').first
       self.messages.to_a[-visibility.unread]
@@ -55,6 +56,7 @@ class Conversation < ApplicationRecord
     end
   end
 
+  # Last person to write a message
   def last_author
     return unless @last_author.present? || messages.size > 0
     @last_author_id ||= messages.pluck(:author_id).last
@@ -65,6 +67,7 @@ class Conversation < ApplicationRecord
     @ordered_participants ||= (messages.map(&:author).reverse + participants).uniq
   end
 
+  # Sets a default subject if left blank
   def subject
     self[:subject].blank? ? I18n.t("conversations.new.subject_default") : self[:subject]
   end
