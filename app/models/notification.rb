@@ -7,29 +7,35 @@
 class Notification < ApplicationRecord
   include Diaspora::Fields::Guid
 
-  belongs_to :recipient, class_name: "User"
-  has_many :notification_actors, dependent: :delete_all
-  has_many :actors, class_name: "Person", through: :notification_actors, source: :person
-  belongs_to :target, polymorphic: true
+  # The Notification class represents notifications sent to users regarding various events.
+  # It acts as an aggregate root managing the state of notifications and their relationships.
 
+  belongs_to :recipient, class_name: "User" # Defines the user receiving the notification.
+  has_many :notification_actors, dependent: :delete_all # Associations to manage multiple actors for a notification.
+
+  has_many :actors, class_name: "Person", through: :notification_actors, source: :person # Many-to-many relationship with persons acting on notifications.
+  belongs_to :target, polymorphic: true # Allows the notification to be associated with various target entities.
+
+  # DDD Suggestion: Consider if polymorphic associations can be replaced with a more explicit model to clarify the relationships.
   def self.for(recipient, opts={})
-    where(opts.merge!(recipient_id: recipient.id)).order("updated_at DESC")
+    where(opts.merge!(recipient_id: recipient.id)).order("updated_at DESC")   # Retrieves notifications for a specific recipient with optional filtering.
   end
 
   def email_the_user(target, actor)
-    recipient.mail(mail_job, recipient_id, actor.id, target.id)
+    recipient.mail(mail_job, recipient_id, actor.id, target.id) # Sends an email notification to the recipient.
   end
 
   def set_read_state( read_state )
-    update_column(:unread, !read_state)
+    update_column(:unread, !read_state) # Updates the read state of the notification.
   end
-
+  
+  # DDD Observation: This method lacks clarity in terms of its purpose; consider renaming to reflect the action being taken (e.g., "mark_as_read").
   def mail_job
     raise NotImplementedError.new("Subclass this.")
   end
 
   def linked_object
-    target
+    target # Returns the target object associated with the notification.
   end
 
   def self.concatenate_or_create(recipient, target, actor)
