@@ -6,6 +6,7 @@
 
 class Comment < ApplicationRecord
 
+  # Defines the properties a comment can have such as being likeable, etc.
   include Diaspora::Federated::Base
   include Diaspora::Fields::Guid
   include Diaspora::Fields::Author
@@ -20,6 +21,8 @@ class Comment < ApplicationRecord
   extract_tags_from :text
   before_create :build_tags
 
+
+  #Establishes the associations between comments and other models
   belongs_to :commentable, :touch => true, :polymorphic => true
   alias_attribute :post, :commentable
   alias_attribute :parent, :commentable
@@ -37,6 +40,7 @@ class Comment < ApplicationRecord
   scope :including_author, -> { includes(:author => :profile) }
   scope :for_a_stream,  -> { including_author.merge(order('created_at ASC')) }
 
+  # Only gets public comments and public posts
   scope :all_public, -> {
     where("commentable_type = 'Post' AND EXISTS(
       SELECT 1 FROM posts WHERE posts.id = commentable_id AND posts.public = true
@@ -47,11 +51,13 @@ class Comment < ApplicationRecord
     self.text.strip! unless self.text.nil?
   end
 
+  # After a comment is made, update the values of the parent post
   after_commit on: :create do
     parent.update_comments_counter
     parent.touch(:interacted_at) if parent.respond_to?(:interacted_at)
   end
 
+  # After a comment is destroyed, update the values of the parent post
   after_destroy do
     self.parent.update_comments_counter
     participation = author.participations.find_by(target_id: post.id)
@@ -62,10 +68,12 @@ class Comment < ApplicationRecord
      self[:text] = text.to_s.strip #to_s if for nil, for whatever reason
   end
 
+  #checks if mention subscribers should be added but only if its the owner of the post
   def add_mention_subscribers?
     super && parent.author.local?
   end
 
+  # Generator class that creates the comments
   class Generator < Diaspora::Federated::Generator
     def self.federated_class
       Comment

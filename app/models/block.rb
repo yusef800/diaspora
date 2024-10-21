@@ -10,6 +10,7 @@ class Block < ApplicationRecord
 
   validate :not_blocking_yourself
 
+  # Prohibits user from blocking self
   def not_blocking_yourself
     return unless user.person.id == person_id
 
