@@ -19,11 +19,13 @@ class Profile < ApplicationRecord
   before_save :strip_names
   after_validation :strip_names
 
+  # Limiting the length for names, location, and gender
   validates :first_name, :length => { :maximum => 32 }
   validates :last_name, :length => { :maximum => 32 }
   validates :location, :length => { :maximum =>255 }
   validates :gender, length: {maximum: 255}
 
+  # Checking names are formatted correctly
   validates_format_of :first_name, :with => /\A[^;]+\z/, :allow_blank => true
   validates_format_of :last_name, :with => /\A[^;]+\z/, :allow_blank => true
   validate :max_tags
@@ -40,6 +42,7 @@ class Profile < ApplicationRecord
     self.construct_full_name
   end
 
+  # Setting up subscribers
   def subscribers
     Person.joins(:contacts).where(contacts: {user_id: person.owner_id})
   end
@@ -110,6 +113,7 @@ class Profile < ApplicationRecord
     end
   end
 
+  # Getting MessageRenderer for bio
   def bio_message
     @bio_message ||= Diaspora::MessageRenderer.new(bio)
   end

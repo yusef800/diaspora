@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Report < ApplicationRecord
+  # Checking that a report is reasonable, user and post/comment present
   validates :user_id, presence: true
   validates :item_id, presence: true
   validates :item_type, presence: true, inclusion: {
@@ -17,22 +18,26 @@ class Report < ApplicationRecord
 
   after_commit :send_report_notification, :on => :create
 
+  # Get the author of the reported item
   def reported_author
     item.author if item
   end
 
+  # Checks the entry exists
   def entry_does_not_exist
     return unless Report.where(item_id: item_id, item_type: item_type).exists?(user_id: user_id)
 
     errors.add(:base, "You cannot report the same post twice.")
   end
 
+  # Handling errors
   def post_or_comment_does_exist
     return unless Post.find_by(id: item_id).nil? && Comment.find_by(id: item_id).nil?
 
     errors.add(:base, "Post or comment was already deleted or doesn't exists.")
   end
 
+  # Removing the item
   def destroy_reported_item
     case item
     when Post
