@@ -4,16 +4,24 @@
 #   licensed under the Affero General Public License version 3 or later.  See
 #   the COPYRIGHT file.
 
+# The User class represents a user in the Diaspora social network.
+# It contains associations with related entities like Person, Aspects, Contacts, etc.
+# It also includes behavior for managing user settings, authentication, and interactions with other users.
+
 require "attr_encrypted"
 
 class User < ApplicationRecord
+  # Includes additional modules for handling social actions, querying the database,
+  # and managing connections between users.
   include Connecting
   include Querying
   include SocialActions
 
+  # Applies a captcha validation for certain forms to prevent spam or automated actions.
+  # The message displayed when captcha fails is internationalized.
   apply_simple_captcha :message => I18n.t('simple_captcha.message.failed'), :add_to_base => true
 
-  # Scopes for filtering users based on activity timestamps
+  # Scopes provide pre-defined database queries for filtering users based on activity
   scope :logged_in_since, ->(time) { where('last_seen > ?', time) }
   scope :monthly_actives, ->(time = Time.now) { logged_in_since(time - 1.month) }
   scope :daily_actives, ->(time = Time.now) { logged_in_since(time - 1.day) }
@@ -21,8 +29,12 @@ class User < ApplicationRecord
   scope :halfyear_actives, ->(time = Time.now) { logged_in_since(time - 6.month) }
   scope :active, -> { joins(:person).where(people: {closed_account: false}) }
 
+  # otp_secret is an encrypted attribute used for two-factor authentication (2FA)
+  # It ensures the user's OTP (One-Time Password) secret is securely stored.
   attr_encrypted :otp_secret, if: false, prefix: "plain_"
 
+  # Devise modules for authentication, including two-factor authentication and account recovery.
+  # Devise handles the majority of user authentication, login tracking, and security.
   devise :two_factor_authenticatable,
          :two_factor_backupable,
          otp_backup_code_length:     16,
@@ -32,10 +44,14 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :trackable, :validatable,
          :lockable, :lastseenable, :lock_strategy => :none, :unlock_strategy => :none
 
+  # Before validation callbacks ensure that user attributes like username and language are correctly formatted
+  # before saving to the database.
   before_validation :strip_and_downcase_username
   before_validation :set_current_language, :on => :create
   before_validation :set_default_color_theme, on: :create
 
+  # Validations ensure that required attributes like username and person are present, 
+  # unique, and correctly formatted.
   validates :username, presence: true, uniqueness: true, format: {with: /\A[A-Za-z0-9_.\-]+\z/},
                        length: {maximum: 32}, exclusion: {in: AppConfig.settings.username_blacklist}
   validates_inclusion_of :language, :in => AVAILABLE_LANGUAGE_CODES
@@ -48,21 +64,24 @@ class User < ApplicationRecord
   validates_associated :person
   validate :no_person_with_same_username
 
+  # Serialized attributes store complex data structures (Hash, Array) in the database as text.
   serialize :hidden_shareables, Hash
   serialize :otp_backup_codes, Array
 
+  # Defines the relationship between User and Person, which holds profile information.
   has_one :person, inverse_of: :owner, foreign_key: :owner_id
   has_one :profile, through: :person
 
+  # Delegates common methods to the associated Person entity, simplifying access to key attributes.
   delegate :guid, :public_key, :posts, :photos, :owns?, :image_url,
            :diaspora_handle, :name, :atom_url, :profile_url, :profile, :url,
            :first_name, :last_name, :full_name, :gender, :participations, to: :person
   delegate :id, :guid, to: :person, prefix: true
 
+  # Manages aspects (groups) that the user has created and organizes their contacts into.
   has_many :aspects, -> { order('order_id ASC') }
 
-
-
+  # Optional relationships to manage user invitations and social actions.
   belongs_to :auto_follow_back_aspect, class_name: "Aspect", optional: true
   belongs_to :invited_by, class_name: "User", optional: true
 
@@ -106,6 +125,8 @@ class User < ApplicationRecord
     raise "Never destroy users!"
   end
 
+  # Other key methods are related to notification management, invitation processing, and shareable content control.
+  # These ensure the user is notified when appropriate and can manage their social interactions.
   def self.all_sharing_with_person(person)
     User.joins(:contacts).where(:contacts => {:person_id => person.id})
   end
@@ -119,6 +140,9 @@ class User < ApplicationRecord
   def unread_message_count
     ConversationVisibility.where(person_id: self.person_id).sum(:unread)
   end
+
+  # More methods below handle user interactions with the system, such as password resets, 
+  # managing user preferences, and exporting user data for privacy and compliance.
 
   def process_invite_acceptence(invite)
     self.invited_by = invite.user
