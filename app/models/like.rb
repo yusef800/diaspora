@@ -17,6 +17,7 @@ class Like < ApplicationRecord
   alias_attribute :parent, :target
 
   class Generator < Diaspora::Federated::Generator
+    # Creating Like
     def self.federated_class
       Like
     end
@@ -26,10 +27,12 @@ class Like < ApplicationRecord
     end
   end
 
+  # Updating the number of likes
   after_commit :on => :create do
     self.parent.update_likes_counter
   end
 
+  # Removing like from the count and removing participation
   after_destroy do
     self.parent.update_likes_counter
     participation_target_id = parent.is_a?(Comment) ? parent.commentable.id : parent.id
